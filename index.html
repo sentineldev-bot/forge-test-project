@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather App</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="theme-btn" id="themeBtn" title="Toggle theme (T)" aria-label="Toggle theme">🌙</button>
+
+  <div class="app" id="app">
+    <header class="header">
+      <h1 class="logo">🌤️ Weather</h1>
+      <p class="tagline">Real-time weather, anywhere.</p>
+    </header>
+
+    <!-- Search (SEN-340 will enhance) -->
+    <div class="search-container" id="searchContainer">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="search-input"
+               placeholder="Search city..." autocomplete="off" aria-label="Search for a city">
+        <button class="geo-btn" id="geoBtn" title="Use my location" aria-label="Use current location">📍</button>
+      </div>
+      <ul class="search-results hidden" id="searchResults"></ul>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading hidden" id="loading">
+      <div class="spinner"></div>
+      <p>Fetching weather data...</p>
+    </div>
+
+    <!-- Error -->
+    <div class="error-banner hidden" id="errorBanner">
+      <span class="error-icon">⚠️</span>
+      <span class="error-msg" id="errorMsg"></span>
+      <button class="error-dismiss" id="errorDismiss" aria-label="Dismiss error">✕</button>
+    </div>
+
+    <!-- Current weather -->
+    <section class="current-weather hidden" id="currentWeather">
+      <div class="cw-location">
+        <h2 id="cwCity">--</h2>
+        <p class="cw-coords" id="cwCoords"></p>
+        <p class="cw-time" id="cwTime"></p>
+      </div>
+      <div class="cw-main">
+        <span class="cw-icon" id="cwIcon">--</span>
+        <div class="cw-temp-group">
+          <span class="cw-temp" id="cwTemp">--°</span>
+          <span class="cw-desc" id="cwDesc">--</span>
+        </div>
+      </div>
+      <div class="cw-details" id="cwDetails">
+        <div class="cw-detail"><span class="cw-detail-label">Feels like</span><span class="cw-detail-value" id="cwFeels">--°</span></div>
+        <div class="cw-detail"><span class="cw-detail-label">Humidity</span><span class="cw-detail-value" id="cwHumidity">--%</span></div>
+        <div class="cw-detail"><span class="cw-detail-label">Wind</span><span class="cw-detail-value" id="cwWind">-- km/h</span></div>
+        <div class="cw-detail"><span class="cw-detail-label">Pressure</span><span class="cw-detail-value" id="cwPressure">-- hPa</span></div>
+        <div class="cw-detail"><span class="cw-detail-label">UV Index</span><span class="cw-detail-value" id="cwUV">--</span></div>
+        <div class="cw-detail"><span class="cw-detail-label">Visibility</span><span class="cw-detail-value" id="cwVisibility">-- km</span></div>
+      </div>
+    </section>
+
+    <!-- 5-day forecast (SEN-341) -->
+    <section class="forecast hidden" id="forecast">
+      <h3 class="section-title">5-Day Forecast</h3>
+      <div class="forecast-grid" id="forecastGrid"></div>
+    </section>
+
+    <!-- Weather map placeholder (SEN-342) -->
+    <section class="weather-map hidden" id="weatherMap">
+      <h3 class="section-title">🗺️ Weather Map</h3>
+      <div id="mapContainer"></div>
+    </section>
+
+    <!-- Alerts (SEN-343) -->
+    <section class="alerts hidden" id="alerts">
+      <h3 class="section-title">⚠️ Weather Alerts</h3>
+      <div id="alertsList"></div>
+    </section>
+
+    <!-- Saved locations (SEN-350) -->
+    <section class="saved-locations hidden" id="savedLocations">
+      <div class="saved-header">
+        <h3 class="section-title">📌 Saved Locations</h3>
+        <span class="saved-count" id="savedCount"></span>
+      </div>
+      <div class="saved-list" id="savedList"></div>
+    </section>
+
+    <footer class="footer">
+      <p>Powered by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> — Free weather API</p>
+    </footer>
+  </div>
+
+  <script src="weather-api.js"></script>
+  <script src="saved-locations.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
