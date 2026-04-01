@@ -174,7 +174,7 @@ assert(typeof nyOffset === 'string', 'NY offset is string');
 assert(nyOffset.length > 0, 'NY offset non-empty');
 
 // ------------------------------------------------------------------
-console.log('\n📄 File Structure');
+console.log('\n📄 File Structure — HTML');
 const fs = require('fs');
 
 const html = fs.readFileSync(__dirname + '/index.html', 'utf-8');
@@ -189,7 +189,15 @@ assert(html.includes('id="searchResults"'), 'Has search results');
 assert(html.includes('id="themeBtn"'), 'Has theme button');
 assert(html.includes('id="emptyState"'), 'Has empty state');
 assert(html.includes('id="timeCompare"'), 'Has time compare placeholder');
+// SEN-370: analog clock + format toggle
+assert(html.includes('id="localHourHand"'), 'Has local hour hand');
+assert(html.includes('id="localMinuteHand"'), 'Has local minute hand');
+assert(html.includes('id="localSecondHand"'), 'Has local second hand');
+assert(html.includes('id="formatToggle"'), 'Has format toggle button');
+assert(html.includes('analog-clock-lg'), 'Has large analog clock class');
+assert(html.includes('id="localMarkers"'), 'Has local clock markers container');
 
+console.log('\n🎨 File Structure — CSS');
 const css = fs.readFileSync(__dirname + '/styles.css', 'utf-8');
 assert(css.includes('[data-theme="dark"]'), 'Has dark theme');
 assert(css.includes('[data-theme="light"]'), 'Has light theme');
@@ -203,7 +211,17 @@ assert(css.includes('.search-results'), 'Has search-results');
 assert(css.includes('.empty-state'), 'Has empty-state');
 assert(css.includes('@media'), 'Has responsive media queries');
 assert(css.includes('.hidden'), 'Has .hidden utility');
+// SEN-370: enhanced styles
+assert(css.includes('.analog-clock-lg'), 'Has large analog clock styles');
+assert(css.includes('.clock-marker'), 'Has clock marker styles');
+assert(css.includes('.clock-marker.major'), 'Has major marker styles');
+assert(css.includes('.format-toggle'), 'Has format toggle styles');
+assert(css.includes('.clock-day-rel'), 'Has relative day label styles');
+assert(css.includes('.night-mode'), 'Has night-mode card styles');
+assert(css.includes('.clock-day-rel.tomorrow'), 'Has tomorrow label styles');
+assert(css.includes('.clock-day-rel.yesterday'), 'Has yesterday label styles');
 
+console.log('\n🔧 File Structure — App JS');
 const appJs = fs.readFileSync(__dirname + '/app.js', 'utf-8');
 assert(appJs.includes('TimezoneData'), 'References TimezoneData');
 assert(appJs.includes('localStorage'), 'Uses localStorage');
@@ -215,6 +233,19 @@ assert(appJs.includes('removeClock'), 'Has removeClock');
 assert(appJs.includes('performSearch'), 'Has performSearch');
 assert(appJs.includes('data-theme'), 'Manages theme');
 assert(appJs.includes('ArrowDown'), 'Has keyboard navigation');
+// SEN-370: enhanced features
+assert(appJs.includes('setHandRotations'), 'Has setHandRotations for analog clocks');
+assert(appJs.includes('createMarkers'), 'Has createMarkers for clock face');
+assert(appJs.includes('formatTime'), 'Has formatTime (12h/24h)');
+assert(appJs.includes('toggleFormat'), 'Has toggleFormat');
+assert(appJs.includes('FORMAT_KEY'), 'Has FORMAT_KEY for persistence');
+assert(appJs.includes('use24h'), 'Has use24h state');
+assert(appJs.includes('getRelativeDay'), 'Has getRelativeDay');
+assert(appJs.includes('night-mode'), 'Has night-mode class toggling');
+assert(appJs.includes('data-tz-hour'), 'Has per-card analog hour hand');
+assert(appJs.includes('data-tz-min'), 'Has per-card analog minute hand');
+assert(appJs.includes('data-tz-sec'), 'Has per-card analog second hand');
+assert(appJs.includes('KeyF'), 'Has F shortcut for format toggle');
 
 // ==================================================================
 console.log('\n' + '='.repeat(50));
