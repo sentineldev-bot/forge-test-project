@@ -1,8 +1,8 @@
 /**
- * Timezone App — Main Controller (SEN-369)
+ * Timezone App — Main Controller (SEN-369 + SEN-370)
  *
- * Handles: local time display, clock grid, search, theme, localStorage preferences.
- * Provides hooks for SEN-370 (live clocks) and SEN-371 (search/add).
+ * Handles: local time display with analog clock, clock grid with analog faces,
+ * 12h/24h toggle, search, theme, localStorage preferences.
  */
 (function () {
   'use strict';
@@ -14,6 +14,10 @@
   var localTimeDisplay = $('localTimeDisplay');
   var localDate        = $('localDate');
   var localTz          = $('localTz');
+  var localHourHand    = $('localHourHand');
+  var localMinuteHand  = $('localMinuteHand');
+  var localSecondHand  = $('localSecondHand');
+  var formatToggle     = $('formatToggle');
   var searchInput      = $('searchInput');
   var searchResults    = $('searchResults');
   var clockGrid        = $('clockGrid');
@@ -23,9 +27,11 @@
   // --- State ---
   var CLOCKS_KEY   = 'timezone-app-clocks';
   var THEME_KEY    = 'timezone-app-theme';
+  var FORMAT_KEY   = 'timezone-app-format';
   var tickInterval = null;
-  var addedClocks  = []; // Array of IANA timezone strings
+  var addedClocks  = [];
   var searchTimer  = null;
+  var use24h       = true;
 
   // =========================================================
   //  THEME
@@ -55,6 +61,94 @@
   themeBtn.addEventListener('click', toggleTheme);
 
   // =========================================================
+  //  12h/24h FORMAT TOGGLE
+  // =========================================================
+  function loadFormat() {
+    var saved = localStorage.getItem(FORMAT_KEY);
+    use24h = saved !== '12';
+    updateFormatBtn();
+  }
+
+  function updateFormatBtn() {
+    formatToggle.textContent = use24h ? '24h' : '12h';
+  }
+
+  function toggleFormat() {
+    use24h = !use24h;
+    localStorage.setItem(FORMAT_KEY, use24h ? '24' : '12');
+    updateFormatBtn();
+    // Re-render to apply format change
+    updateLocalTime();
+    renderClocks();
+  }
+
+  formatToggle.addEventListener('click', toggleFormat);
+
+  function formatTime(info) {
+    return use24h ? info.time24 : info.time12;
+  }
+
+  // =========================================================
+  //  ANALOG CLOCK HANDS
+  // =========================================================
+  function setHandRotations(hourEl, minuteEl, secondEl, h, m, s) {
+    var hourDeg   = ((h % 12) + m / 60) * 30;  // 360/12 = 30° per hour
+    var minuteDeg = (m + s / 60) * 6;           // 360/60 = 6° per minute
+    var secondDeg = s * 6;                       // 360/60 = 6° per second
+
+    if (hourEl)   hourEl.style.transform   = 'rotate(' + hourDeg + 'deg)';
+    if (minuteEl) minuteEl.style.transform = 'rotate(' + minuteDeg + 'deg)';
+    if (secondEl) secondEl.style.transform = 'rotate(' + secondDeg + 'deg)';
+  }
+
+  /**
+   * Create hour markers inside an analog clock element.
+   */
+  function createMarkers(container) {
+    for (var i = 0; i < 12; i++) {
+      var marker = document.createElement('div');
+      marker.className = 'clock-marker' + (i % 3 === 0 ? ' major' : '');
+      marker.style.transform = 'rotate(' + (i * 30) + 'deg)';
+      container.appendChild(marker);
+    }
+  }
+
+  // Create local clock markers
+  var localMarkers = $('localMarkers');
+  if (localMarkers) createMarkers(localMarkers);
+
+  // =========================================================
+  //  RELATIVE DAY LABEL
+  // =========================================================
+  function getRelativeDay(info) {
+    // Compare the date string of the timezone with local date string
+    var localInfo = TZ.getTimeInZone(TZ.getLocalTimezone());
+    if (!localInfo) return '';
+    if (info.date === localInfo.date) return '';
+
+    // Parse dates to determine tomorrow/yesterday
+    var localD = parseShortDate(localInfo.date);
+    var tzD = parseShortDate(info.date);
+    if (!localD || !tzD) return '';
+
+    var diff = Math.round((tzD - localD) / 86400000);
+    if (diff === 1) return 'tomorrow';
+    if (diff === -1) return 'yesterday';
+    if (diff > 1) return '+' + diff + 'd';
+    if (diff < -1) return diff + 'd';
+    return '';
+  }
+
+  function parseShortDate(dateStr) {
+    // "Mon, 31 Mar 2026" or similar Intl format
+    try {
+      return new Date(dateStr);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // =========================================================
   //  LOCAL TIME
   // =========================================================
   function updateLocalTime() {
@@ -62,9 +156,12 @@
     var info = TZ.getTimeInZone(tz);
     if (!info) return;
 
-    localTimeDisplay.textContent = info.time24;
+    localTimeDisplay.textContent = formatTime(info);
     localDate.textContent = info.date;
     localTz.textContent = tz + ' (' + TZ.getUTCOffset(tz) + ')';
+
+    // Update analog hands
+    setHandRotations(localHourHand, localMinuteHand, localSecondHand, info.hours, info.minutes, info.seconds);
   }
 
   // =========================================================
@@ -104,10 +201,9 @@
   }
 
   // =========================================================
-  //  CLOCK GRID RENDERING
+  //  CLOCK GRID RENDERING (SEN-370 enhanced)
   // =========================================================
   function renderClocks() {
-    // Keep emptyState or remove it
     if (addedClocks.length === 0) {
       clockGrid.innerHTML = '';
       emptyState.classList.remove('hidden');
@@ -124,10 +220,17 @@
       if (!info || !meta) return;
 
       var card = document.createElement('div');
-      card.className = 'clock-card';
+      card.className = 'clock-card' + (info.isDay ? '' : ' night-mode');
       card.setAttribute('data-tz', tz);
 
       var offsetClass = info.offsetMinutes > 0 ? 'ahead' : info.offsetMinutes < 0 ? 'behind' : 'same';
+
+      // Relative day label
+      var relDay = getRelativeDay(info);
+      var relHtml = '';
+      if (relDay === 'tomorrow') relHtml = '<span class="clock-day-rel tomorrow">TMR</span>';
+      else if (relDay === 'yesterday') relHtml = '<span class="clock-day-rel yesterday">YST</span>';
+      else if (relDay) relHtml = '<span class="clock-day-rel">' + escapeHtml(relDay) + '</span>';
 
       card.innerHTML =
         '<div class="clock-card-header">' +
@@ -138,11 +241,32 @@
           '<span class="clock-daynight">' + (info.isDay ? '☀️' : '🌙') + '</span>' +
           '<button class="clock-remove" data-tz="' + escapeHtml(tz) + '" title="Remove" aria-label="Remove ' + escapeHtml(meta.city) + '">✕</button>' +
         '</div>' +
-        '<div class="clock-time" data-tz-time="' + escapeHtml(tz) + '">' + info.time24 + '</div>' +
-        '<div class="clock-date" data-tz-date="' + escapeHtml(tz) + '">' + info.date + '</div>' +
+        // Analog clock
+        '<div class="analog-clock">' +
+          '<div class="clock-hand clock-hand-hour" data-tz-hour="' + escapeHtml(tz) + '"></div>' +
+          '<div class="clock-hand clock-hand-minute" data-tz-min="' + escapeHtml(tz) + '"></div>' +
+          '<div class="clock-hand clock-hand-second" data-tz-sec="' + escapeHtml(tz) + '"></div>' +
+          '<div class="clock-center-dot"></div>' +
+          '<div class="clock-markers-container" data-tz-markers="' + escapeHtml(tz) + '"></div>' +
+        '</div>' +
+        // Digital time
+        '<div class="clock-time" data-tz-time="' + escapeHtml(tz) + '">' + formatTime(info) + '</div>' +
+        '<div class="clock-date" data-tz-date="' + escapeHtml(tz) + '">' + info.date + relHtml + '</div>' +
         '<div class="clock-offset ' + offsetClass + '">' + info.offset + '</div>';
 
       clockGrid.appendChild(card);
+
+      // Set initial hand positions
+      setHandRotations(
+        card.querySelector('[data-tz-hour="' + tz + '"]'),
+        card.querySelector('[data-tz-min="' + tz + '"]'),
+        card.querySelector('[data-tz-sec="' + tz + '"]'),
+        info.hours, info.minutes, info.seconds
+      );
+
+      // Create markers
+      var markersEl = card.querySelector('[data-tz-markers="' + tz + '"]');
+      if (markersEl) createMarkers(markersEl);
     });
 
     // Wire remove buttons
@@ -157,7 +281,7 @@
   }
 
   /**
-   * Update only the time/date/daynight parts of existing cards (no re-render).
+   * Update time/hands on existing cards without full re-render.
    */
   function tickClocks() {
     updateLocalTime();
@@ -168,8 +292,30 @@
 
       var timeEl = document.querySelector('[data-tz-time="' + tz + '"]');
       var dateEl = document.querySelector('[data-tz-date="' + tz + '"]');
-      if (timeEl) timeEl.textContent = info.time24;
-      if (dateEl) dateEl.textContent = info.date;
+      if (timeEl) timeEl.textContent = formatTime(info);
+      if (dateEl) {
+        var relDay = getRelativeDay(info);
+        var relHtml = '';
+        if (relDay === 'tomorrow') relHtml = '<span class="clock-day-rel tomorrow">TMR</span>';
+        else if (relDay === 'yesterday') relHtml = '<span class="clock-day-rel yesterday">YST</span>';
+        dateEl.innerHTML = escapeHtml(info.date) + relHtml;
+      }
+
+      // Update analog hands
+      setHandRotations(
+        document.querySelector('[data-tz-hour="' + tz + '"]'),
+        document.querySelector('[data-tz-min="' + tz + '"]'),
+        document.querySelector('[data-tz-sec="' + tz + '"]'),
+        info.hours, info.minutes, info.seconds
+      );
+
+      // Update day/night
+      var card = document.querySelector('[data-tz="' + tz + '"]');
+      if (card) {
+        card.classList.toggle('night-mode', !info.isDay);
+        var dnEl = card.querySelector('.clock-daynight');
+        if (dnEl) dnEl.textContent = info.isDay ? '☀️' : '🌙';
+      }
     });
   }
 
@@ -266,7 +412,6 @@
     searchResults.innerHTML = '';
   }
 
-  // Close on outside click
   document.addEventListener('click', function (e) {
     if (!e.target.closest('.search-container')) {
       hideSearchResults();
@@ -279,6 +424,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'INPUT') return;
     if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey) toggleTheme();
+    if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey) toggleFormat();
     if (e.code === 'Slash') {
       e.preventDefault();
       searchInput.focus();
@@ -298,6 +444,7 @@
   //  INIT
   // =========================================================
   loadTheme();
+  loadFormat();
   loadClocks();
   updateLocalTime();
   renderClocks();
@@ -306,8 +453,10 @@
   var VISITED_KEY = 'timezone-app-visited';
   if (!localStorage.getItem(VISITED_KEY)) {
     localStorage.setItem(VISITED_KEY, '1');
-    // Add a few default world clocks
-    var defaults = ['America/New_York', 'Europe/London', 'Asia/Tokyo', 'Australia/Sydney'];
+    var defaults = [
+      'America/New_York', 'Europe/London', 'Europe/Berlin',
+      'Asia/Dubai', 'Asia/Tokyo', 'Australia/Sydney'
+    ];
     var localTzName = TZ.getLocalTimezone();
     defaults.forEach(function (tz) {
       if (tz !== localTzName) addClock(tz);
