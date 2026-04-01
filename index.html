@@ -34,17 +34,23 @@
       <button class="format-toggle" id="formatToggle" title="Toggle 12h/24h format" aria-label="Toggle time format">24h</button>
     </section>
 
-    <!-- Search (SEN-371 will enhance) -->
+    <!-- Search (SEN-371 enhanced) -->
     <div class="search-container" id="searchContainer">
       <div class="search-box">
         <span class="search-icon">🔍</span>
         <input type="text" id="searchInput" class="search-input"
-               placeholder="Search timezone or city..." autocomplete="off"
+               placeholder="Search timezone or city... (/ to focus)" autocomplete="off"
                aria-label="Search for a timezone">
-        <button class="add-btn" id="addBtn" title="Add timezone" aria-label="Add timezone">+</button>
+        <button class="browse-btn" id="browseBtn" title="Browse all timezones" aria-label="Browse timezones">🌐</button>
       </div>
       <ul class="search-results hidden" id="searchResults"></ul>
+      <div class="browse-panel hidden" id="browsePanel">
+        <div class="browse-tabs" id="browseTabs"></div>
+        <ul class="browse-list" id="browseList"></ul>
+      </div>
     </div>
+
+    <div class="clock-count" id="clockCount"></div>
 
     <!-- Clock grid (SEN-370 will populate live clocks) -->
     <section class="clock-grid" id="clockGrid">
@@ -61,6 +67,8 @@
       <p>All times use your browser's <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank" rel="noopener">IANA timezone database</a></p>
     </footer>
   </div>
+
+  <div class="toast" id="toast"></div>
 
   <script src="timezone-data.js"></script>
   <script src="app.js"></script>

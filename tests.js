@@ -247,6 +247,88 @@ assert(appJs.includes('data-tz-min'), 'Has per-card analog minute hand');
 assert(appJs.includes('data-tz-sec'), 'Has per-card analog second hand');
 assert(appJs.includes('KeyF'), 'Has F shortcut for format toggle');
 
+// ------------------------------------------------------------------
+console.log('\n🔍 Enhanced Search (SEN-371)');
+
+// Fuzzy multi-word search
+results = TZ.search('new york');
+assert(results.length >= 1, 'Multi-word "new york" finds results');
+assertEqual(results[0].city, 'New York', 'Top result is New York');
+
+// Partial match
+results = TZ.search('lon');
+assert(results.length >= 1, 'Partial "lon" finds London');
+assertEqual(results[0].city, 'London', 'Top result is London');
+
+// Score ordering: exact > starts-with > contains
+results = TZ.search('paris');
+assertEqual(results[0].city, 'Paris', 'Exact match "paris" → Paris first');
+
+// Search by country code
+results = TZ.search('JP');
+assert(results.length >= 1, 'Country code "JP" finds results');
+assertEqual(results[0].country, 'JP', 'JP result has country JP');
+
+// Search by region
+results = TZ.search('africa');
+assert(results.length >= 4, 'Region "africa" finds 4+ results');
+
+// getByRegion
+console.log('\n🌐 Browse by Region (SEN-371)');
+assert(typeof TZ.getByRegion === 'function', 'getByRegion is a function');
+const grouped = TZ.getByRegion();
+assert(typeof grouped === 'object', 'getByRegion returns object');
+assert(Array.isArray(grouped['Americas']), 'Americas is an array');
+assert(grouped['Americas'].length >= 10, 'Americas has 10+ timezones');
+assert(Array.isArray(grouped['Europe']), 'Europe is an array');
+assert(grouped['Europe'].length >= 10, 'Europe has 10+ timezones');
+assert(Array.isArray(grouped['Asia']), 'Asia is an array');
+assert(Array.isArray(grouped['Oceania']), 'Oceania is an array');
+assert(Array.isArray(grouped['Africa']), 'Africa is an array');
+
+// All timezones accounted for
+let totalGrouped = 0;
+Object.keys(grouped).forEach(r => { totalGrouped += grouped[r].length; });
+assertEqual(totalGrouped, TZ.POPULAR_TIMEZONES.length, 'All timezones in region groups');
+
+// ------------------------------------------------------------------
+console.log('\n📄 SEN-371 File Checks');
+
+// HTML
+assert(html.includes('id="browseBtn"'), 'HTML has browse button');
+assert(html.includes('id="browsePanel"'), 'HTML has browse panel');
+assert(html.includes('id="browseTabs"'), 'HTML has browse tabs');
+assert(html.includes('id="browseList"'), 'HTML has browse list');
+assert(html.includes('id="toast"'), 'HTML has toast element');
+assert(html.includes('id="clockCount"'), 'HTML has clock count');
+
+// CSS
+assert(css.includes('.browse-panel'), 'CSS has browse-panel');
+assert(css.includes('.browse-tab'), 'CSS has browse-tab');
+assert(css.includes('.browse-list'), 'CSS has browse-list');
+assert(css.includes('.browse-time'), 'CSS has browse-time');
+assert(css.includes('.toast'), 'CSS has toast styles');
+assert(css.includes('.toast.show'), 'CSS has toast.show');
+assert(css.includes('.clock-count'), 'CSS has clock-count');
+assert(css.includes('.dragging'), 'CSS has dragging class');
+assert(css.includes('.drag-over'), 'CSS has drag-over class');
+assert(css.includes('.sr-time'), 'CSS has sr-time (search result time preview)');
+
+// App JS
+assert(appJs.includes('MAX_CLOCKS'), 'app.js has MAX_CLOCKS');
+assert(appJs.includes('showToast'), 'app.js has showToast');
+assert(appJs.includes('tryAddClock'), 'app.js has tryAddClock');
+assert(appJs.includes('openBrowse'), 'app.js has openBrowse');
+assert(appJs.includes('closeBrowse'), 'app.js has closeBrowse');
+assert(appJs.includes('renderBrowseList'), 'app.js has renderBrowseList');
+assert(appJs.includes('getByRegion'), 'app.js uses getByRegion');
+assert(appJs.includes('enableDragReorder'), 'app.js has enableDragReorder');
+assert(appJs.includes('reorderClocks'), 'app.js has reorderClocks');
+assert(appJs.includes('updateClockCount'), 'app.js has updateClockCount');
+assert(appJs.includes('dragstart'), 'app.js has dragstart event');
+assert(appJs.includes('drop'), 'app.js has drop event');
+assert(appJs.includes('draggable'), 'app.js sets draggable attribute');
+
 // ==================================================================
 console.log('\n' + '='.repeat(50));
 console.log('Results: ' + passed + ' passed, ' + failed + ' failed, ' + (passed + failed) + ' total');
