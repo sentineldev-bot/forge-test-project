@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Weather App</title>
+  <title>Timezone App</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,92 +11,58 @@
 
   <div class="app" id="app">
     <header class="header">
-      <h1 class="logo">🌤️ Weather</h1>
-      <p class="tagline">Real-time weather, anywhere.</p>
+      <h1 class="logo">🕐 World Clock</h1>
+      <p class="tagline">Track time across the globe</p>
     </header>
 
-    <!-- Search (SEN-340 will enhance) -->
+    <!-- Local time hero -->
+    <section class="local-time" id="localTime">
+      <div class="local-analog" id="localAnalog">
+        <div class="analog-clock analog-clock-lg">
+          <div class="clock-hand clock-hand-hour" id="localHourHand"></div>
+          <div class="clock-hand clock-hand-minute" id="localMinuteHand"></div>
+          <div class="clock-hand clock-hand-second" id="localSecondHand"></div>
+          <div class="clock-center-dot"></div>
+          <div class="clock-markers" id="localMarkers"></div>
+        </div>
+      </div>
+      <div class="local-clock">
+        <span class="local-time-display" id="localTimeDisplay">--:--:--</span>
+        <span class="local-date" id="localDate">---</span>
+      </div>
+      <p class="local-tz" id="localTz">--</p>
+      <button class="format-toggle" id="formatToggle" title="Toggle 12h/24h format" aria-label="Toggle time format">24h</button>
+    </section>
+
+    <!-- Search (SEN-371 will enhance) -->
     <div class="search-container" id="searchContainer">
       <div class="search-box">
         <span class="search-icon">🔍</span>
         <input type="text" id="searchInput" class="search-input"
-               placeholder="Search city..." autocomplete="off" aria-label="Search for a city">
-        <button class="geo-btn" id="geoBtn" title="Use my location" aria-label="Use current location">📍</button>
+               placeholder="Search timezone or city..." autocomplete="off"
+               aria-label="Search for a timezone">
+        <button class="add-btn" id="addBtn" title="Add timezone" aria-label="Add timezone">+</button>
       </div>
       <ul class="search-results hidden" id="searchResults"></ul>
     </div>
 
-    <!-- Loading -->
-    <div class="loading hidden" id="loading">
-      <div class="spinner"></div>
-      <p>Fetching weather data...</p>
-    </div>
-
-    <!-- Error -->
-    <div class="error-banner hidden" id="errorBanner">
-      <span class="error-icon">⚠️</span>
-      <span class="error-msg" id="errorMsg"></span>
-      <button class="error-dismiss" id="errorDismiss" aria-label="Dismiss error">✕</button>
-    </div>
-
-    <!-- Current weather -->
-    <section class="current-weather hidden" id="currentWeather">
-      <div class="cw-location">
-        <h2 id="cwCity">--</h2>
-        <p class="cw-coords" id="cwCoords"></p>
-        <p class="cw-time" id="cwTime"></p>
-      </div>
-      <div class="cw-main">
-        <span class="cw-icon" id="cwIcon">--</span>
-        <div class="cw-temp-group">
-          <span class="cw-temp" id="cwTemp">--°</span>
-          <span class="cw-desc" id="cwDesc">--</span>
-        </div>
-      </div>
-      <div class="cw-details" id="cwDetails">
-        <div class="cw-detail"><span class="cw-detail-label">Feels like</span><span class="cw-detail-value" id="cwFeels">--°</span></div>
-        <div class="cw-detail"><span class="cw-detail-label">Humidity</span><span class="cw-detail-value" id="cwHumidity">--%</span></div>
-        <div class="cw-detail"><span class="cw-detail-label">Wind</span><span class="cw-detail-value" id="cwWind">-- km/h</span></div>
-        <div class="cw-detail"><span class="cw-detail-label">Pressure</span><span class="cw-detail-value" id="cwPressure">-- hPa</span></div>
-        <div class="cw-detail"><span class="cw-detail-label">UV Index</span><span class="cw-detail-value" id="cwUV">--</span></div>
-        <div class="cw-detail"><span class="cw-detail-label">Visibility</span><span class="cw-detail-value" id="cwVisibility">-- km</span></div>
-      </div>
+    <!-- Clock grid (SEN-370 will populate live clocks) -->
+    <section class="clock-grid" id="clockGrid">
+      <p class="empty-state" id="emptyState">Add timezones above to track world clocks</p>
     </section>
 
-    <!-- 5-day forecast (SEN-341) -->
-    <section class="forecast hidden" id="forecast">
-      <h3 class="section-title">5-Day Forecast</h3>
-      <div class="forecast-grid" id="forecastGrid"></div>
-    </section>
-
-    <!-- Weather map placeholder (SEN-342) -->
-    <section class="weather-map hidden" id="weatherMap">
-      <h3 class="section-title">🗺️ Weather Map</h3>
-      <div id="mapContainer"></div>
-    </section>
-
-    <!-- Alerts (SEN-343) -->
-    <section class="alerts hidden" id="alerts">
-      <h3 class="section-title">⚠️ Weather Alerts</h3>
-      <div id="alertsList"></div>
-    </section>
-
-    <!-- Saved locations (SEN-350) -->
-    <section class="saved-locations hidden" id="savedLocations">
-      <div class="saved-header">
-        <h3 class="section-title">📌 Saved Locations</h3>
-        <span class="saved-count" id="savedCount"></span>
-      </div>
-      <div class="saved-list" id="savedList"></div>
+    <!-- Time comparison tool -->
+    <section class="time-compare hidden" id="timeCompare">
+      <h3 class="section-title">🔄 Time Comparison</h3>
+      <div id="compareContainer"></div>
     </section>
 
     <footer class="footer">
-      <p>Powered by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> — Free weather API</p>
+      <p>All times use your browser's <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank" rel="noopener">IANA timezone database</a></p>
     </footer>
   </div>
 
-  <script src="weather-api.js"></script>
-  <script src="saved-locations.js"></script>
+  <script src="timezone-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

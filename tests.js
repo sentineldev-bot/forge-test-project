@@ -1,7 +1,5 @@
 /**
- * Weather App — Test Suite (SEN-339)
- *
- * Runs in Node.js — validates API layer logic and utility functions.
+ * Timezone App — Test Suite (SEN-369)
  * Usage: node tests.js
  */
 'use strict';
@@ -11,190 +9,222 @@ let failed = 0;
 const errors = [];
 
 function assert(condition, testName) {
-  if (condition) {
-    passed++;
-    console.log('  ✅ ' + testName);
-  } else {
-    failed++;
-    errors.push(testName);
-    console.log('  ❌ ' + testName);
-  }
+  if (condition) { passed++; console.log('  ✅ ' + testName); }
+  else { failed++; errors.push(testName); console.log('  ❌ ' + testName); }
 }
 
 function assertEqual(actual, expected, testName) {
-  if (actual === expected) {
-    passed++;
-    console.log('  ✅ ' + testName);
-  } else {
-    failed++;
-    errors.push(testName + ' (got: ' + JSON.stringify(actual) + ', expected: ' + JSON.stringify(expected) + ')');
+  if (actual === expected) { passed++; console.log('  ✅ ' + testName); }
+  else {
+    failed++; errors.push(testName + ' (got: ' + JSON.stringify(actual) + ', expected: ' + JSON.stringify(expected) + ')');
     console.log('  ❌ ' + testName + ' — got: ' + JSON.stringify(actual) + ', expected: ' + JSON.stringify(expected));
   }
 }
 
-// ------------------------------------------------------------------
-// Mock browser globals for loading weather-api.js
-// ------------------------------------------------------------------
+// Mock browser globals
 global.window = {};
-global.fetch = async function () { return { ok: true, json: async () => ({}) }; };
+global.Intl = Intl; // Node has native Intl
+global.document = { createElement: () => ({ textContent: '', get innerHTML() { return this.textContent; } }) };
 
-// Load the API module
-require('./weather-api.js');
-const API = global.window.WeatherAPI;
+require('./timezone-data.js');
+const TZ = global.window.TimezoneData;
 
 // ==================================================================
-console.log('\n🧪 Weather API Test Suite\n');
+console.log('\n🧪 Timezone App Test Suite\n');
 
 // ------------------------------------------------------------------
 console.log('📦 Module Loading');
-assert(typeof API === 'object', 'WeatherAPI is exported');
-assert(typeof API.searchCities === 'function', 'searchCities is a function');
-assert(typeof API.fetchWeather === 'function', 'fetchWeather is a function');
-assert(typeof API.reverseGeocode === 'function', 'reverseGeocode is a function');
-assert(typeof API.decodeWeatherCode === 'function', 'decodeWeatherCode is a function');
-assert(typeof API.windDirection === 'function', 'windDirection is a function');
-assert(typeof API.uvLabel === 'function', 'uvLabel is a function');
-assert(typeof API.formatDay === 'function', 'formatDay is a function');
-assert(typeof API.WMO_CODES === 'object', 'WMO_CODES is exported');
+assert(typeof TZ === 'object', 'TimezoneData is exported');
+assert(typeof TZ.getTimeInZone === 'function', 'getTimeInZone is a function');
+assert(typeof TZ.getLocalTimezone === 'function', 'getLocalTimezone is a function');
+assert(typeof TZ.formatOffset === 'function', 'formatOffset is a function');
+assert(typeof TZ.getUTCOffset === 'function', 'getUTCOffset is a function');
+assert(typeof TZ.search === 'function', 'search is a function');
+assert(typeof TZ.getByTz === 'function', 'getByTz is a function');
+assert(typeof TZ.getRegions === 'function', 'getRegions is a function');
+assert(typeof TZ.pad === 'function', 'pad is a function');
+assert(Array.isArray(TZ.POPULAR_TIMEZONES), 'POPULAR_TIMEZONES is an array');
 
 // ------------------------------------------------------------------
-console.log('\n🌤️ WMO Weather Codes');
-const wmoCodes = [0, 1, 2, 3, 45, 48, 51, 53, 55, 61, 63, 65, 71, 73, 75, 80, 81, 82, 95, 96, 99];
-wmoCodes.forEach(code => {
-  const result = API.decodeWeatherCode(code, false);
-  assert(result.desc && result.icon, 'WMO code ' + code + ' → "' + result.desc + '" ' + result.icon);
+console.log('\n🌍 Popular Timezones Data');
+assert(TZ.POPULAR_TIMEZONES.length >= 40, 'At least 40 popular timezones (' + TZ.POPULAR_TIMEZONES.length + ')');
+
+// Validate structure of each entry
+let allValid = true;
+TZ.POPULAR_TIMEZONES.forEach(tz => {
+  if (!tz.tz || !tz.city || !tz.region) allValid = false;
+});
+assert(allValid, 'All entries have tz, city, region');
+
+// Check key cities are present
+const cities = TZ.POPULAR_TIMEZONES.map(t => t.city);
+['New York', 'London', 'Tokyo', 'Sydney', 'Paris', 'Berlin', 'Dubai', 'Singapore'].forEach(city => {
+  assert(cities.includes(city), 'Has ' + city);
 });
 
-// Day vs night icons
-const clearDay = API.decodeWeatherCode(0, false);
-const clearNight = API.decodeWeatherCode(0, true);
-assertEqual(clearDay.icon, '☀️', 'Clear day icon is ☀️');
-assertEqual(clearNight.icon, '🌙', 'Clear night icon is 🌙');
-
-// Unknown code
-const unknown = API.decodeWeatherCode(999, false);
-assertEqual(unknown.desc, 'Unknown', 'Unknown code returns "Unknown"');
+// Check regions
+const regions = TZ.getRegions();
+assert(regions.includes('Americas'), 'Has Americas region');
+assert(regions.includes('Europe'), 'Has Europe region');
+assert(regions.includes('Asia'), 'Has Asia region');
+assert(regions.includes('Oceania'), 'Has Oceania region');
+assert(regions.includes('Africa'), 'Has Africa region');
 
 // ------------------------------------------------------------------
-console.log('\n🧭 Wind Direction');
-assertEqual(API.windDirection(0), 'N', '0° = N');
-assertEqual(API.windDirection(90), 'E', '90° = E');
-assertEqual(API.windDirection(180), 'S', '180° = S');
-assertEqual(API.windDirection(270), 'W', '270° = W');
-assertEqual(API.windDirection(45), 'NE', '45° = NE');
-assertEqual(API.windDirection(135), 'SE', '135° = SE');
-assertEqual(API.windDirection(225), 'SW', '225° = SW');
-assertEqual(API.windDirection(315), 'NW', '315° = NW');
-assertEqual(API.windDirection(360), 'N', '360° = N');
-assertEqual(API.windDirection(22), 'NNE', '22° = NNE');
+console.log('\n⏰ getTimeInZone');
+const nyTime = TZ.getTimeInZone('America/New_York');
+assert(nyTime !== null, 'New York returns data');
+assert(typeof nyTime.hours === 'number', 'hours is number');
+assert(typeof nyTime.minutes === 'number', 'minutes is number');
+assert(typeof nyTime.seconds === 'number', 'seconds is number');
+assert(nyTime.hours >= 0 && nyTime.hours <= 23, 'hours in range 0-23');
+assert(nyTime.minutes >= 0 && nyTime.minutes <= 59, 'minutes in range 0-59');
+assert(typeof nyTime.time24 === 'string', 'time24 is string');
+assert(/^\d{2}:\d{2}:\d{2}$/.test(nyTime.time24), 'time24 format HH:MM:SS');
+assert(typeof nyTime.time12 === 'string', 'time12 is string');
+assert(typeof nyTime.date === 'string', 'date is string');
+assert(typeof nyTime.dayName === 'string', 'dayName is string');
+assert(typeof nyTime.isDay === 'boolean', 'isDay is boolean');
+assert(typeof nyTime.offsetMinutes === 'number', 'offsetMinutes is number');
+assert(typeof nyTime.offset === 'string', 'offset is string');
+assertEqual(nyTime.timezone, 'America/New_York', 'timezone field matches');
+
+const tokyoTime = TZ.getTimeInZone('Asia/Tokyo');
+assert(tokyoTime !== null, 'Tokyo returns data');
+assert(/^\d{2}:\d{2}:\d{2}$/.test(tokyoTime.time24), 'Tokyo time24 format');
+
+const utcTime = TZ.getTimeInZone('UTC');
+assert(utcTime !== null, 'UTC returns data');
+
+const invalidTime = TZ.getTimeInZone('Invalid/Timezone_That_Does_Not_Exist');
+assertEqual(invalidTime, null, 'Invalid timezone returns null');
 
 // ------------------------------------------------------------------
-console.log('\n☀️ UV Index Labels');
-let uv;
-uv = API.uvLabel(0);   assertEqual(uv.label, 'Low', 'UV 0 = Low');
-uv = API.uvLabel(2);   assertEqual(uv.label, 'Low', 'UV 2 = Low');
-uv = API.uvLabel(3);   assertEqual(uv.label, 'Moderate', 'UV 3 = Moderate');
-uv = API.uvLabel(5);   assertEqual(uv.label, 'Moderate', 'UV 5 = Moderate');
-uv = API.uvLabel(6);   assertEqual(uv.label, 'High', 'UV 6 = High');
-uv = API.uvLabel(7);   assertEqual(uv.label, 'High', 'UV 7 = High');
-uv = API.uvLabel(8);   assertEqual(uv.label, 'Very High', 'UV 8 = Very High');
-uv = API.uvLabel(10);  assertEqual(uv.label, 'Very High', 'UV 10 = Very High');
-uv = API.uvLabel(11);  assertEqual(uv.label, 'Extreme', 'UV 11 = Extreme');
+console.log('\n🧭 getLocalTimezone');
+const localTz = TZ.getLocalTimezone();
+assert(typeof localTz === 'string', 'Returns a string');
+assert(localTz.length > 0, 'Non-empty');
 
 // ------------------------------------------------------------------
-console.log('\n📅 Format Day');
-const today = new Date();
-const todayStr = today.toISOString().slice(0, 10);
-assertEqual(API.formatDay(todayStr), 'Today', 'Today\'s date returns "Today"');
-
-const tomorrow = new Date(today);
-tomorrow.setDate(today.getDate() + 1);
-const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-assertEqual(API.formatDay(tomorrowStr), 'Tomorrow', 'Tomorrow\'s date returns "Tomorrow"');
-
-const nextWeek = new Date(today);
-nextWeek.setDate(today.getDate() + 5);
-const nextWeekStr = nextWeek.toISOString().slice(0, 10);
-const dayResult = API.formatDay(nextWeekStr);
-assert(dayResult !== 'Today' && dayResult !== 'Tomorrow', '5 days out returns a weekday: "' + dayResult + '"');
-assert(dayResult.length <= 3, 'Weekday is short format (3 chars): "' + dayResult + '"');
+console.log('\n📏 formatOffset');
+assertEqual(TZ.formatOffset(0), 'Same time', '0 = Same time');
+assertEqual(TZ.formatOffset(60), '+1h', '+60min = +1h');
+assertEqual(TZ.formatOffset(-60), '-1h', '-60min = -1h');
+assertEqual(TZ.formatOffset(330), '+5h 30m', '+330min = +5h 30m');
+assertEqual(TZ.formatOffset(-480), '-8h', '-480min = -8h');
+assertEqual(TZ.formatOffset(90), '+1h 30m', '+90min = +1h 30m');
+assertEqual(TZ.formatOffset(-345), '-5h 45m', '-345min = -5h 45m');
 
 // ------------------------------------------------------------------
-console.log('\n🔌 searchCities Input Validation');
-(async () => {
-  // Short query returns empty
-  let results = await API.searchCities('', 5);
-  assertEqual(results.length, 0, 'Empty query returns []');
+console.log('\n🔢 pad');
+assertEqual(TZ.pad(0), '00', 'pad(0) = "00"');
+assertEqual(TZ.pad(5), '05', 'pad(5) = "05"');
+assertEqual(TZ.pad(9), '09', 'pad(9) = "09"');
+assertEqual(TZ.pad(10), '10', 'pad(10) = "10"');
+assertEqual(TZ.pad(23), '23', 'pad(23) = "23"');
 
-  results = await API.searchCities('a', 5);
-  assertEqual(results.length, 0, 'Single char query returns []');
+// ------------------------------------------------------------------
+console.log('\n🔍 search');
+let results;
+results = TZ.search('');
+assertEqual(results.length, 0, 'Empty query → []');
 
-  // ------------------------------------------------------------------
-  console.log('\n📊 HTML Structure Validation');
-  const fs = require('fs');
-  const html = fs.readFileSync(__dirname + '/index.html', 'utf-8');
+results = TZ.search('london');
+assert(results.length >= 1, 'london → at least 1 result');
+assertEqual(results[0].city, 'London', 'First result is London');
 
-  assert(html.includes('<!DOCTYPE html>'), 'Has DOCTYPE');
-  assert(html.includes('<meta charset="UTF-8">'), 'Has UTF-8 charset');
-  assert(html.includes('<meta name="viewport"'), 'Has viewport meta');
-  assert(html.includes('styles.css'), 'Links styles.css');
-  assert(html.includes('weather-api.js'), 'Links weather-api.js');
-  assert(html.includes('app.js'), 'Links app.js');
-  assert(html.includes('id="searchInput"'), 'Has search input');
-  assert(html.includes('id="currentWeather"'), 'Has current weather section');
-  assert(html.includes('id="forecast"'), 'Has forecast section');
-  assert(html.includes('id="alerts"'), 'Has alerts section placeholder');
-  assert(html.includes('id="savedLocations"'), 'Has saved locations placeholder');
-  assert(html.includes('id="weatherMap"'), 'Has weather map placeholder');
-  assert(html.includes('id="loading"'), 'Has loading state');
-  assert(html.includes('id="errorBanner"'), 'Has error banner');
-  assert(html.includes('id="themeBtn"'), 'Has theme button');
+results = TZ.search('new york');
+assert(results.length >= 1, 'new york → at least 1');
+assertEqual(results[0].city, 'New York', 'First result is New York');
 
-  // ------------------------------------------------------------------
-  console.log('\n🎨 CSS Validation');
-  const css = fs.readFileSync(__dirname + '/styles.css', 'utf-8');
+results = TZ.search('US');
+assert(results.length >= 3, 'US → at least 3 results (US cities)');
 
-  assert(css.includes('[data-theme="dark"]'), 'Has dark theme');
-  assert(css.includes('[data-theme="light"]'), 'Has light theme');
-  assert(css.includes('--bg:'), 'Has --bg variable');
-  assert(css.includes('--accent:'), 'Has --accent variable');
-  assert(css.includes('--text:'), 'Has --text variable');
-  assert(css.includes('.hidden'), 'Has .hidden utility');
-  assert(css.includes('@media'), 'Has media queries');
-  assert(css.includes('.spinner'), 'Has spinner animation');
-  assert(css.includes('.forecast-card'), 'Has forecast card styles');
-  assert(css.includes('.search-results'), 'Has search results styles');
-  assert(css.includes('.error-banner'), 'Has error banner styles');
-  assert(css.includes('.current-weather'), 'Has current weather styles');
+results = TZ.search('asia');
+assert(results.length >= 5, 'asia → at least 5 results');
 
-  // ------------------------------------------------------------------
-  console.log('\n🔧 App.js Validation');
-  const appJs = fs.readFileSync(__dirname + '/app.js', 'utf-8');
+results = TZ.search('xyz_nothing');
+assertEqual(results.length, 0, 'Nonsense query → 0');
 
-  assert(appJs.includes('WeatherAPI'), 'References WeatherAPI');
-  assert(appJs.includes('searchCities'), 'Uses searchCities');
-  assert(appJs.includes('fetchWeather'), 'Uses fetchWeather');
-  assert(appJs.includes('geolocation'), 'Has geolocation support');
-  assert(appJs.includes('localStorage'), 'Uses localStorage');
-  assert(appJs.includes('data-theme'), 'Manages theme attribute');
-  assert(appJs.includes('renderCurrentWeather'), 'Has renderCurrentWeather');
-  assert(appJs.includes('renderForecast'), 'Has renderForecast');
-  assert(appJs.includes('showLoading'), 'Has loading state management');
-  assert(appJs.includes('showError'), 'Has error state management');
-  assert(appJs.includes('debounce') || appJs.includes('setTimeout'), 'Has search debouncing');
-  assert(appJs.includes('ArrowDown') || appJs.includes('ArrowUp'), 'Has keyboard navigation for results');
+results = TZ.search('tokyo', 1);
+assertEqual(results.length, 1, 'limit=1 returns exactly 1');
 
-  // ==================================================================
-  console.log('\n' + '='.repeat(50));
-  console.log('Results: ' + passed + ' passed, ' + failed + ' failed, ' + (passed + failed) + ' total');
+// ------------------------------------------------------------------
+console.log('\n📋 getByTz');
+const london = TZ.getByTz('Europe/London');
+assert(london !== null, 'Europe/London found');
+assertEqual(london.city, 'London', 'city is London');
+assertEqual(london.country, 'GB', 'country is GB');
 
-  if (failed > 0) {
-    console.log('\nFailed tests:');
-    errors.forEach(e => console.log('  ❌ ' + e));
-    console.log('');
-    process.exit(1);
-  } else {
-    console.log('✅ All tests passed!\n');
-    process.exit(0);
-  }
-})();
+const custom = TZ.getByTz('America/Argentina/Buenos_Aires');
+assert(custom !== null, 'Custom tz returns dynamic entry');
+assertEqual(custom.city, 'Buenos Aires', 'Parsed city from tz path');
+
+const utcEntry = TZ.getByTz('UTC');
+assert(utcEntry !== null, 'UTC found');
+assertEqual(utcEntry.city, 'UTC', 'UTC city is UTC');
+
+// ------------------------------------------------------------------
+console.log('\n🌐 getUTCOffset');
+const utcOffset = TZ.getUTCOffset('UTC');
+assert(typeof utcOffset === 'string', 'Returns string');
+
+const nyOffset = TZ.getUTCOffset('America/New_York');
+assert(typeof nyOffset === 'string', 'NY offset is string');
+assert(nyOffset.length > 0, 'NY offset non-empty');
+
+// ------------------------------------------------------------------
+console.log('\n📄 File Structure');
+const fs = require('fs');
+
+const html = fs.readFileSync(__dirname + '/index.html', 'utf-8');
+assert(html.includes('<!DOCTYPE html>'), 'Has DOCTYPE');
+assert(html.includes('timezone-data.js'), 'Links timezone-data.js');
+assert(html.includes('app.js'), 'Links app.js');
+assert(html.includes('styles.css'), 'Links styles.css');
+assert(html.includes('id="localTimeDisplay"'), 'Has local time display');
+assert(html.includes('id="clockGrid"'), 'Has clock grid');
+assert(html.includes('id="searchInput"'), 'Has search input');
+assert(html.includes('id="searchResults"'), 'Has search results');
+assert(html.includes('id="themeBtn"'), 'Has theme button');
+assert(html.includes('id="emptyState"'), 'Has empty state');
+assert(html.includes('id="timeCompare"'), 'Has time compare placeholder');
+
+const css = fs.readFileSync(__dirname + '/styles.css', 'utf-8');
+assert(css.includes('[data-theme="dark"]'), 'Has dark theme');
+assert(css.includes('[data-theme="light"]'), 'Has light theme');
+assert(css.includes('.clock-card'), 'Has clock-card styles');
+assert(css.includes('.clock-grid'), 'Has clock-grid layout');
+assert(css.includes('.clock-time'), 'Has clock-time');
+assert(css.includes('.clock-offset'), 'Has clock-offset');
+assert(css.includes('.local-time-display'), 'Has local-time-display');
+assert(css.includes('.analog-clock'), 'Has analog-clock styles');
+assert(css.includes('.search-results'), 'Has search-results');
+assert(css.includes('.empty-state'), 'Has empty-state');
+assert(css.includes('@media'), 'Has responsive media queries');
+assert(css.includes('.hidden'), 'Has .hidden utility');
+
+const appJs = fs.readFileSync(__dirname + '/app.js', 'utf-8');
+assert(appJs.includes('TimezoneData'), 'References TimezoneData');
+assert(appJs.includes('localStorage'), 'Uses localStorage');
+assert(appJs.includes('setInterval'), 'Has tick interval');
+assert(appJs.includes('renderClocks'), 'Has renderClocks');
+assert(appJs.includes('tickClocks'), 'Has tickClocks');
+assert(appJs.includes('addClock'), 'Has addClock');
+assert(appJs.includes('removeClock'), 'Has removeClock');
+assert(appJs.includes('performSearch'), 'Has performSearch');
+assert(appJs.includes('data-theme'), 'Manages theme');
+assert(appJs.includes('ArrowDown'), 'Has keyboard navigation');
+
+// ==================================================================
+console.log('\n' + '='.repeat(50));
+console.log('Results: ' + passed + ' passed, ' + failed + ' failed, ' + (passed + failed) + ' total');
+
+if (failed > 0) {
+  console.log('\nFailed tests:');
+  errors.forEach(e => console.log('  ❌ ' + e));
+  process.exit(1);
+} else {
+  console.log('✅ All tests passed!\n');
+  process.exit(0);
+}
