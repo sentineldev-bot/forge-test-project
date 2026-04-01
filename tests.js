@@ -188,7 +188,7 @@ assert(html.includes('id="searchInput"'), 'Has search input');
 assert(html.includes('id="searchResults"'), 'Has search results');
 assert(html.includes('id="themeBtn"'), 'Has theme button');
 assert(html.includes('id="emptyState"'), 'Has empty state');
-assert(html.includes('id="timeCompare"'), 'Has time compare placeholder');
+assert(html.includes('id="timeConverter"'), 'Has time converter section');
 // SEN-370: analog clock + format toggle
 assert(html.includes('id="localHourHand"'), 'Has local hour hand');
 assert(html.includes('id="localMinuteHand"'), 'Has local minute hand');
@@ -328,6 +328,72 @@ assert(appJs.includes('updateClockCount'), 'app.js has updateClockCount');
 assert(appJs.includes('dragstart'), 'app.js has dragstart event');
 assert(appJs.includes('drop'), 'app.js has drop event');
 assert(appJs.includes('draggable'), 'app.js sets draggable attribute');
+
+// ------------------------------------------------------------------
+console.log('\n🔄 Time Converter (SEN-372)');
+
+// convertTime exists
+assert(typeof TZ.convertTime === 'function', 'convertTime is a function');
+
+// Basic conversion: NY to London (London is typically +5h from NY)
+const conv1 = TZ.convertTime(12, 0, '2026-06-15', 'America/New_York', 'Europe/London');
+assert(conv1 !== null, 'NY→London returns result');
+assert(typeof conv1.hours === 'number', 'Result has hours');
+assert(typeof conv1.minutes === 'number', 'Result has minutes');
+assert(typeof conv1.time24 === 'string', 'Result has time24');
+assert(typeof conv1.time12 === 'string', 'Result has time12');
+assert(typeof conv1.date === 'string', 'Result has date');
+assert(typeof conv1.dayShift === 'number', 'Result has dayShift');
+assert(typeof conv1.fromOffset === 'string', 'Result has fromOffset');
+assert(typeof conv1.toOffset === 'string', 'Result has toOffset');
+// London should be ahead of NY
+assert(conv1.hours > 12 || (conv1.hours === 12 && conv1.dayShift > 0), 'London is ahead of NY at noon');
+
+// Same timezone should return same time
+const conv2 = TZ.convertTime(15, 30, '2026-03-31', 'UTC', 'UTC');
+assert(conv2 !== null, 'UTC→UTC returns result');
+assertEqual(conv2.hours, 15, 'UTC→UTC same hours');
+assertEqual(conv2.minutes, 30, 'UTC→UTC same minutes');
+assertEqual(conv2.dayShift, 0, 'UTC→UTC same day');
+
+// Cross-date conversion: late night in Tokyo → LA should be previous day
+const conv3 = TZ.convertTime(2, 0, '2026-06-15', 'Asia/Tokyo', 'America/Los_Angeles');
+assert(conv3 !== null, 'Tokyo 2am→LA returns result');
+assertEqual(conv3.dayShift, -1, 'Tokyo 2am → LA previous day');
+
+// Date format check
+assert(/^\d{4}-\d{2}-\d{2}$/.test(conv1.date), 'Date format is YYYY-MM-DD');
+assert(/^\d{2}:\d{2}$/.test(conv1.time24), 'time24 format is HH:MM');
+
+// ------------------------------------------------------------------
+console.log('\n📄 SEN-372 File Checks');
+
+// HTML
+assert(html.includes('id="timeConverter"'), 'HTML has time converter section');
+assert(html.includes('id="converterFrom"'), 'HTML has from select');
+assert(html.includes('id="converterTo"'), 'HTML has to select');
+assert(html.includes('id="converterTimeInput"'), 'HTML has time input');
+assert(html.includes('id="converterDateInput"'), 'HTML has date input');
+assert(html.includes('id="converterSwap"'), 'HTML has swap button');
+assert(html.includes('id="converterResultTime"'), 'HTML has result time');
+assert(html.includes('id="converterResultShift"'), 'HTML has result shift');
+
+// CSS
+assert(css.includes('.time-converter'), 'CSS has .time-converter');
+assert(css.includes('.converter-card'), 'CSS has .converter-card');
+assert(css.includes('.converter-select'), 'CSS has .converter-select');
+assert(css.includes('.converter-swap'), 'CSS has .converter-swap');
+assert(css.includes('.converter-result-time'), 'CSS has .converter-result-time');
+assert(css.includes('.converter-result-shift'), 'CSS has .converter-result-shift');
+assert(css.includes('.next-day'), 'CSS has .next-day shift class');
+assert(css.includes('.prev-day'), 'CSS has .prev-day shift class');
+
+// App JS
+assert(appJs.includes('initConverter'), 'app.js has initConverter');
+assert(appJs.includes('runConversion'), 'app.js has runConversion');
+assert(appJs.includes('converterSwap'), 'app.js has swap handler');
+assert(appJs.includes('convertTime'), 'app.js uses convertTime');
+assert(appJs.includes('dayShift'), 'app.js handles dayShift');
 
 // ==================================================================
 console.log('\n' + '='.repeat(50));

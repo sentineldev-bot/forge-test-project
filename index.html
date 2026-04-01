@@ -57,10 +57,35 @@
       <p class="empty-state" id="emptyState">Add timezones above to track world clocks</p>
     </section>
 
-    <!-- Time comparison tool -->
-    <section class="time-compare hidden" id="timeCompare">
-      <h3 class="section-title">🔄 Time Comparison</h3>
-      <div id="compareContainer"></div>
+    <!-- Time converter (SEN-372) -->
+    <section class="time-converter" id="timeConverter">
+      <h3 class="section-title">🔄 Time Converter</h3>
+      <div class="converter-card">
+        <div class="converter-row">
+          <!-- Source -->
+          <div class="converter-zone">
+            <label class="converter-label">From</label>
+            <select id="converterFrom" class="converter-select" aria-label="Source timezone"></select>
+            <div class="converter-time-input">
+              <input type="time" id="converterTimeInput" class="converter-time" value="12:00" aria-label="Time to convert">
+              <input type="date" id="converterDateInput" class="converter-date" aria-label="Date to convert">
+            </div>
+          </div>
+          <!-- Swap -->
+          <button class="converter-swap" id="converterSwap" title="Swap timezones" aria-label="Swap timezones">⇄</button>
+          <!-- Target -->
+          <div class="converter-zone">
+            <label class="converter-label">To</label>
+            <select id="converterTo" class="converter-select" aria-label="Target timezone"></select>
+            <div class="converter-result" id="converterResult">
+              <span class="converter-result-time" id="converterResultTime">--:--</span>
+              <span class="converter-result-date" id="converterResultDate"></span>
+              <span class="converter-result-shift" id="converterResultShift"></span>
+            </div>
+          </div>
+        </div>
+        <div class="converter-offsets" id="converterOffsets"></div>
+      </div>
     </section>
 
     <footer class="footer">
