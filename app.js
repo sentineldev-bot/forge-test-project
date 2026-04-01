@@ -619,6 +619,127 @@
   }
 
   // =========================================================
+  //  TIME CONVERTER (SEN-372)
+  // =========================================================
+  var converterFrom  = $('converterFrom');
+  var converterTo    = $('converterTo');
+  var converterTime  = $('converterTimeInput');
+  var converterDate  = $('converterDateInput');
+  var converterSwap  = $('converterSwap');
+  var converterResultTime  = $('converterResultTime');
+  var converterResultDate  = $('converterResultDate');
+  var converterResultShift = $('converterResultShift');
+  var converterOffsets     = $('converterOffsets');
+
+  function initConverter() {
+    // Populate selects with all popular timezones
+    var tzList = TZ.POPULAR_TIMEZONES;
+    var localTzName = TZ.getLocalTimezone();
+
+    [converterFrom, converterTo].forEach(function (sel) {
+      sel.innerHTML = '';
+      var regions = TZ.getByRegion();
+      var regionOrder = TZ.getRegions();
+      regionOrder.forEach(function (region) {
+        var group = document.createElement('optgroup');
+        group.label = region;
+        regions[region].forEach(function (tz) {
+          var opt = document.createElement('option');
+          opt.value = tz.tz;
+          opt.textContent = tz.city + (tz.country ? ' (' + tz.country + ')' : '');
+          group.appendChild(opt);
+        });
+        sel.appendChild(group);
+      });
+    });
+
+    // Set defaults: local tz → first added clock (or London)
+    converterFrom.value = localTzName;
+    // If local tz not in list, try to select closest
+    if (converterFrom.value !== localTzName) {
+      converterFrom.selectedIndex = 0;
+    }
+
+    var defaultTo = addedClocks.length > 0 ? addedClocks[0] : 'Europe/London';
+    converterTo.value = defaultTo;
+    if (converterTo.value !== defaultTo) {
+      converterTo.selectedIndex = 0;
+    }
+
+    // Set current time and today's date
+    var now = new Date();
+    converterTime.value = TZ.pad(now.getHours()) + ':' + TZ.pad(now.getMinutes());
+    converterDate.value = now.getFullYear() + '-' + TZ.pad(now.getMonth() + 1) + '-' + TZ.pad(now.getDate());
+
+    // Initial conversion
+    runConversion();
+  }
+
+  function runConversion() {
+    var timeParts = converterTime.value.split(':');
+    var h = parseInt(timeParts[0], 10) || 0;
+    var m = parseInt(timeParts[1], 10) || 0;
+    var dateStr = converterDate.value;
+    var fromTz = converterFrom.value;
+    var toTz = converterTo.value;
+
+    if (!dateStr || !fromTz || !toTz) {
+      converterResultTime.textContent = '--:--';
+      converterResultDate.textContent = '';
+      converterResultShift.textContent = '';
+      converterOffsets.textContent = '';
+      return;
+    }
+
+    var result = TZ.convertTime(h, m, dateStr, fromTz, toTz);
+    if (!result) {
+      converterResultTime.textContent = 'Error';
+      converterResultDate.textContent = '';
+      converterResultShift.textContent = '';
+      return;
+    }
+
+    converterResultTime.textContent = use24h ? result.time24 : result.time12;
+
+    // Format result date nicely
+    var rd = new Date(result.date + 'T12:00:00');
+    converterResultDate.textContent = rd.toLocaleDateString('en', {
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+    });
+
+    // Day shift indicator
+    if (result.dayShift === 0) {
+      converterResultShift.textContent = 'Same day';
+      converterResultShift.className = 'converter-result-shift';
+    } else if (result.dayShift === 1) {
+      converterResultShift.textContent = 'Next day (+1)';
+      converterResultShift.className = 'converter-result-shift next-day';
+    } else if (result.dayShift === -1) {
+      converterResultShift.textContent = 'Previous day (-1)';
+      converterResultShift.className = 'converter-result-shift prev-day';
+    } else {
+      converterResultShift.textContent = (result.dayShift > 0 ? '+' : '') + result.dayShift + ' days';
+      converterResultShift.className = 'converter-result-shift ' + (result.dayShift > 0 ? 'next-day' : 'prev-day');
+    }
+
+    // Offset info
+    converterOffsets.textContent = result.fromOffset + ' → ' + result.toOffset;
+  }
+
+  // Wire up converter events
+  converterFrom.addEventListener('change', runConversion);
+  converterTo.addEventListener('change', runConversion);
+  converterTime.addEventListener('input', runConversion);
+  converterDate.addEventListener('input', runConversion);
+
+  converterSwap.addEventListener('click', function () {
+    var tmp = converterFrom.value;
+    converterFrom.value = converterTo.value;
+    converterTo.value = tmp;
+    runConversion();
+  });
+
+  // =========================================================
   //  KEYBOARD SHORTCUTS
   // =========================================================
   document.addEventListener('keydown', function (e) {
@@ -648,6 +769,7 @@
   loadClocks();
   updateLocalTime();
   renderClocks();
+  initConverter();
 
   // Add default clocks if first visit
   var VISITED_KEY = 'timezone-app-visited';

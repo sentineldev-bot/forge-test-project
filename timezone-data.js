@@ -292,6 +292,97 @@
     return n < 10 ? '0' + n : '' + n;
   }
 
+  /**
+   * Convert a specific time from one timezone to another.
+   * @param {number} hours - 0-23
+   * @param {number} minutes - 0-59
+   * @param {string} dateStr - YYYY-MM-DD
+   * @param {string} fromTz - Source IANA timezone
+   * @param {string} toTz - Target IANA timezone
+   * @returns {{ hours, minutes, date, time24, time12, dayShift, fromOffset, toOffset } | null}
+   */
+  function convertTime(hours, minutes, dateStr, fromTz, toTz) {
+    try {
+      // Build a Date object in the source timezone
+      // Strategy: create a date string and parse it relative to the source tz
+      var srcStr = dateStr + 'T' + pad(hours) + ':' + pad(minutes) + ':00';
+
+      // Get UTC offset for source timezone at that date/time
+      // We use a trick: format the same instant in both timezones
+      var refDate = new Date(srcStr + 'Z'); // treat as UTC first
+
+      // Get source timezone's offset by comparing formatted times
+      var srcFmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: fromTz, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      });
+      var srcParts = parseDateTimeParts(srcFmt.format(refDate));
+
+      // Calculate the offset: the difference between what we asked for and what the tz shows
+      var askedMs = Date.UTC(
+        parseInt(dateStr.split('-')[0]),
+        parseInt(dateStr.split('-')[1]) - 1,
+        parseInt(dateStr.split('-')[2]),
+        hours, minutes, 0
+      );
+      var srcShownMs = Date.UTC(srcParts.year, srcParts.month - 1, srcParts.day, srcParts.hours, srcParts.minutes, 0);
+      var srcOffsetMs = srcShownMs - refDate.getTime();
+
+      // The actual UTC time of the user's input in the source timezone
+      var actualUtcMs = askedMs - srcOffsetMs;
+
+      // Now format that UTC time in the target timezone
+      var targetDate = new Date(actualUtcMs);
+      var tgtFmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: toTz, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      });
+      var tgtParts = parseDateTimeParts(tgtFmt.format(targetDate));
+
+      var tgtFmt12 = new Intl.DateTimeFormat('en-US', {
+        timeZone: toTz, hour: 'numeric', minute: '2-digit', hour12: true
+      });
+
+      // Day shift
+      var srcDayMs = Date.UTC(
+        parseInt(dateStr.split('-')[0]),
+        parseInt(dateStr.split('-')[1]) - 1,
+        parseInt(dateStr.split('-')[2])
+      );
+      var tgtDayMs = Date.UTC(tgtParts.year, tgtParts.month - 1, tgtParts.day);
+      var dayShift = Math.round((tgtDayMs - srcDayMs) / 86400000);
+
+      return {
+        hours: tgtParts.hours,
+        minutes: tgtParts.minutes,
+        date: tgtParts.year + '-' + pad(tgtParts.month) + '-' + pad(tgtParts.day),
+        time24: pad(tgtParts.hours) + ':' + pad(tgtParts.minutes),
+        time12: tgtFmt12.format(targetDate),
+        dayShift: dayShift,
+        fromOffset: getUTCOffset(fromTz),
+        toOffset: getUTCOffset(toTz),
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Parse "DD/MM/YYYY, HH:MM:SS" from Intl.DateTimeFormat('en-GB').
+   */
+  function parseDateTimeParts(str) {
+    // Format: "31/03/2026, 14:30:00"
+    var match = str.match(/(\d{2})\/(\d{2})\/(\d{4}),?\s*(\d{2}):(\d{2}):(\d{2})/);
+    if (!match) return { year: 2000, month: 1, day: 1, hours: 0, minutes: 0 };
+    return {
+      day: parseInt(match[1], 10),
+      month: parseInt(match[2], 10),
+      year: parseInt(match[3], 10),
+      hours: parseInt(match[4], 10),
+      minutes: parseInt(match[5], 10),
+    };
+  }
+
   // --- Public API ---
   window.TimezoneData = {
     POPULAR_TIMEZONES: POPULAR_TIMEZONES,
@@ -303,6 +394,7 @@
     getByTz: getByTz,
     getByRegion: getByRegion,
     getRegions: getRegions,
+    convertTime: convertTime,
     pad: pad,
   };
 })();
