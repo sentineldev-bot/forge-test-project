@@ -88,6 +88,15 @@
       </div>
     </section>
 
+    <!-- Settings export/import (SEN-373) -->
+    <div class="settings-bar" id="settingsBar">
+      <button class="settings-btn" id="exportBtn" title="Export settings">📤 Export</button>
+      <label class="settings-btn" id="importLabel" title="Import settings">
+        📥 Import
+        <input type="file" id="importInput" accept=".json" class="hidden" aria-label="Import settings file">
+      </label>
+    </div>
+
     <footer class="footer">
       <p>All times use your browser's <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank" rel="noopener">IANA timezone database</a></p>
     </footer>

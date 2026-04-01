@@ -395,6 +395,39 @@ assert(appJs.includes('converterSwap'), 'app.js has swap handler');
 assert(appJs.includes('convertTime'), 'app.js uses convertTime');
 assert(appJs.includes('dayShift'), 'app.js handles dayShift');
 
+// ------------------------------------------------------------------
+console.log('\n⭐ Favorites & Persistence (SEN-373)');
+
+// HTML checks
+assert(html.includes('id="exportBtn"'), 'HTML has export button');
+assert(html.includes('id="importInput"'), 'HTML has import input');
+assert(html.includes('settings-bar'), 'HTML has settings bar');
+assert(appJs.includes('clock-fav'), 'app.js generates clock-fav buttons dynamically');
+
+// CSS checks
+assert(css.includes('.clock-card.favorited'), 'CSS has .clock-card.favorited');
+assert(css.includes('.clock-fav'), 'CSS has .clock-fav');
+assert(css.includes('.settings-bar'), 'CSS has .settings-bar');
+assert(css.includes('.settings-btn'), 'CSS has .settings-btn');
+assert(css.includes('.clock-card-actions'), 'CSS has .clock-card-actions');
+
+// App JS checks
+assert(appJs.includes('FAVORITES_KEY'), 'app.js has FAVORITES_KEY');
+assert(appJs.includes('loadFavorites'), 'app.js has loadFavorites');
+assert(appJs.includes('saveFavorites'), 'app.js has saveFavorites');
+assert(appJs.includes('toggleFavorite'), 'app.js has toggleFavorite');
+assert(appJs.includes('isFavorite'), 'app.js has isFavorite');
+assert(appJs.includes('getSortedClocks'), 'app.js has getSortedClocks (favorites first)');
+assert(appJs.includes('CONVERTER_KEY'), 'app.js has CONVERTER_KEY');
+assert(appJs.includes('saveConverterState'), 'app.js has saveConverterState');
+assert(appJs.includes('loadConverterState'), 'app.js has loadConverterState');
+assert(appJs.includes('exportSettings'), 'app.js has exportSettings');
+assert(appJs.includes('importSettings'), 'app.js has importSettings');
+assert(appJs.includes('version: 1'), 'app.js exports with version field');
+assert(appJs.includes('clock-fav'), 'app.js renders favorite buttons');
+assert(appJs.includes('favorited'), 'app.js adds favorited class');
+assert(appJs.includes('getSortedClocks()'), 'app.js calls getSortedClocks in render');
+
 // ==================================================================
 console.log('\n' + '='.repeat(50));
 console.log('Results: ' + passed + ' passed, ' + failed + ' failed, ' + (passed + failed) + ' total');
