@@ -29,8 +29,11 @@
   var THEME_KEY    = 'timezone-app-theme';
   var FORMAT_KEY   = 'timezone-app-format';
   var MAX_CLOCKS   = 20;
+  var FAVORITES_KEY = 'timezone-app-favorites';
+  var CONVERTER_KEY = 'timezone-app-converter';
   var tickInterval = null;
   var addedClocks  = [];
+  var favorites    = {}; // { "America/New_York": true, ... }
   var searchTimer  = null;
   var use24h       = true;
   var browseOpen   = false;
@@ -204,6 +207,137 @@
   }
 
   // =========================================================
+  //  FAVORITES (SEN-373)
+  // =========================================================
+  function loadFavorites() {
+    try {
+      var raw = localStorage.getItem(FAVORITES_KEY);
+      favorites = raw ? JSON.parse(raw) : {};
+      if (typeof favorites !== 'object' || Array.isArray(favorites)) favorites = {};
+    } catch (e) {
+      favorites = {};
+    }
+  }
+
+  function saveFavorites() {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+  }
+
+  function toggleFavorite(tz) {
+    if (favorites[tz]) {
+      delete favorites[tz];
+    } else {
+      favorites[tz] = true;
+    }
+    saveFavorites();
+  }
+
+  function isFavorite(tz) {
+    return !!favorites[tz];
+  }
+
+  /**
+   * Get clocks sorted with favorites first, preserving order within each group.
+   */
+  function getSortedClocks() {
+    var favs = [];
+    var rest = [];
+    for (var i = 0; i < addedClocks.length; i++) {
+      if (favorites[addedClocks[i]]) {
+        favs.push(addedClocks[i]);
+      } else {
+        rest.push(addedClocks[i]);
+      }
+    }
+    return favs.concat(rest);
+  }
+
+  // =========================================================
+  //  CONVERTER PERSISTENCE (SEN-373)
+  // =========================================================
+  function saveConverterState() {
+    var state = {
+      from: converterFrom ? converterFrom.value : '',
+      to: converterTo ? converterTo.value : '',
+    };
+    localStorage.setItem(CONVERTER_KEY, JSON.stringify(state));
+  }
+
+  function loadConverterState() {
+    try {
+      var raw = localStorage.getItem(CONVERTER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // =========================================================
+  //  EXPORT / IMPORT SETTINGS (SEN-373)
+  // =========================================================
+  function exportSettings() {
+    var data = {
+      version: 1,
+      exported: new Date().toISOString(),
+      clocks: addedClocks,
+      favorites: favorites,
+      theme: document.documentElement.getAttribute('data-theme') || 'dark',
+      format: use24h ? '24' : '12',
+      converter: {
+        from: converterFrom ? converterFrom.value : '',
+        to: converterTo ? converterTo.value : '',
+      },
+    };
+    var json = JSON.stringify(data, null, 2);
+    var blob = new Blob([json], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'timezone-app-settings.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Settings exported');
+  }
+
+  function importSettings(jsonStr) {
+    try {
+      var data = JSON.parse(jsonStr);
+      if (!data || data.version !== 1) {
+        showToast('Invalid settings file');
+        return false;
+      }
+      if (Array.isArray(data.clocks)) {
+        addedClocks = data.clocks;
+        saveClocks();
+      }
+      if (data.favorites && typeof data.favorites === 'object') {
+        favorites = data.favorites;
+        saveFavorites();
+      }
+      if (data.theme) applyTheme(data.theme);
+      if (data.format) {
+        use24h = data.format !== '12';
+        localStorage.setItem(FORMAT_KEY, data.format);
+        updateFormatBtn();
+      }
+      renderClocks();
+      updateClockCount();
+      if (data.converter && converterFrom && converterTo) {
+        if (data.converter.from) converterFrom.value = data.converter.from;
+        if (data.converter.to) converterTo.value = data.converter.to;
+        runConversion();
+      }
+      showToast('Settings imported (' + addedClocks.length + ' clocks)');
+      return true;
+    } catch (e) {
+      showToast('Failed to import: invalid JSON');
+      return false;
+    }
+  }
+
+  // =========================================================
   //  CLOCK GRID RENDERING (SEN-370 enhanced)
   // =========================================================
   function renderClocks() {
@@ -217,13 +351,15 @@
     emptyState.classList.add('hidden');
     clockGrid.innerHTML = '';
 
-    addedClocks.forEach(function (tz) {
+    var sortedClocks = getSortedClocks();
+    sortedClocks.forEach(function (tz) {
       var info = TZ.getTimeInZone(tz);
       var meta = TZ.getByTz(tz);
       if (!info || !meta) return;
 
+      var isFav = isFavorite(tz);
       var card = document.createElement('div');
-      card.className = 'clock-card' + (info.isDay ? '' : ' night-mode');
+      card.className = 'clock-card' + (info.isDay ? '' : ' night-mode') + (isFav ? ' favorited' : '');
       card.setAttribute('data-tz', tz);
 
       var offsetClass = info.offsetMinutes > 0 ? 'ahead' : info.offsetMinutes < 0 ? 'behind' : 'same';
@@ -241,8 +377,11 @@
             '<div class="clock-city">' + escapeHtml(meta.city) + '</div>' +
             '<div class="clock-region">' + escapeHtml(meta.country || meta.region) + '</div>' +
           '</div>' +
-          '<span class="clock-daynight">' + (info.isDay ? '☀️' : '🌙') + '</span>' +
-          '<button class="clock-remove" data-tz="' + escapeHtml(tz) + '" title="Remove" aria-label="Remove ' + escapeHtml(meta.city) + '">✕</button>' +
+          '<div class="clock-card-actions">' +
+            '<button class="clock-fav" data-tz="' + escapeHtml(tz) + '" title="' + (isFav ? 'Unfavorite' : 'Favorite') + '" aria-label="' + (isFav ? 'Unfavorite' : 'Favorite') + ' ' + escapeHtml(meta.city) + '">' + (isFav ? '★' : '☆') + '</button>' +
+            '<span class="clock-daynight">' + (info.isDay ? '☀️' : '🌙') + '</span>' +
+            '<button class="clock-remove" data-tz="' + escapeHtml(tz) + '" title="Remove" aria-label="Remove ' + escapeHtml(meta.city) + '">✕</button>' +
+          '</div>' +
         '</div>' +
         // Analog clock
         '<div class="analog-clock">' +
@@ -272,11 +411,23 @@
       if (markersEl) createMarkers(markersEl);
     });
 
+    // Wire favorite buttons
+    clockGrid.querySelectorAll('.clock-fav').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var tz = btn.getAttribute('data-tz');
+        toggleFavorite(tz);
+        renderClocks();
+      });
+    });
+
     // Wire remove buttons
     clockGrid.querySelectorAll('.clock-remove').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
         var tz = btn.getAttribute('data-tz');
+        // Also remove from favorites
+        if (favorites[tz]) { delete favorites[tz]; saveFavorites(); }
         removeClock(tz);
         renderClocks();
         updateClockCount();
@@ -653,16 +804,24 @@
       });
     });
 
-    // Set defaults: local tz → first added clock (or London)
-    converterFrom.value = localTzName;
-    // If local tz not in list, try to select closest
-    if (converterFrom.value !== localTzName) {
+    // Restore saved converter state or set defaults
+    var savedConv = loadConverterState();
+    if (savedConv && savedConv.from) {
+      converterFrom.value = savedConv.from;
+    } else {
+      converterFrom.value = localTzName;
+    }
+    if (converterFrom.value !== (savedConv && savedConv.from || localTzName)) {
       converterFrom.selectedIndex = 0;
     }
 
-    var defaultTo = addedClocks.length > 0 ? addedClocks[0] : 'Europe/London';
-    converterTo.value = defaultTo;
-    if (converterTo.value !== defaultTo) {
+    if (savedConv && savedConv.to) {
+      converterTo.value = savedConv.to;
+    } else {
+      var defaultTo = addedClocks.length > 0 ? addedClocks[0] : 'Europe/London';
+      converterTo.value = defaultTo;
+    }
+    if (!converterTo.value) {
       converterTo.selectedIndex = 0;
     }
 
@@ -726,9 +885,9 @@
     converterOffsets.textContent = result.fromOffset + ' → ' + result.toOffset;
   }
 
-  // Wire up converter events
-  converterFrom.addEventListener('change', runConversion);
-  converterTo.addEventListener('change', runConversion);
+  // Wire up converter events (with state saving)
+  converterFrom.addEventListener('change', function () { runConversion(); saveConverterState(); });
+  converterTo.addEventListener('change', function () { runConversion(); saveConverterState(); });
   converterTime.addEventListener('input', runConversion);
   converterDate.addEventListener('input', runConversion);
 
@@ -737,6 +896,7 @@
     converterFrom.value = converterTo.value;
     converterTo.value = tmp;
     runConversion();
+    saveConverterState();
   });
 
   // =========================================================
@@ -762,11 +922,32 @@
   }
 
   // =========================================================
+  //  EXPORT / IMPORT UI (SEN-373)
+  // =========================================================
+  var exportBtn = $('exportBtn');
+  var importInput = $('importInput');
+
+  if (exportBtn) exportBtn.addEventListener('click', exportSettings);
+  if (importInput) {
+    importInput.addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        importSettings(ev.target.result);
+      };
+      reader.readAsText(file);
+      importInput.value = ''; // reset so same file can be re-imported
+    });
+  }
+
+  // =========================================================
   //  INIT
   // =========================================================
   loadTheme();
   loadFormat();
   loadClocks();
+  loadFavorites();
   updateLocalTime();
   renderClocks();
   initConverter();

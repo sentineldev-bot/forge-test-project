@@ -642,6 +642,60 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   box-shadow: 0 0 12px rgba(88,166,255,0.3);
 }
 
+/* --- Favorites (SEN-373) --- */
+.clock-card.favorited {
+  border-color: var(--yellow);
+  box-shadow: 0 0 8px rgba(253,216,53,0.15);
+}
+
+.clock-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.clock-fav {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: transform 0.2s;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.clock-fav:hover { transform: scale(1.2); }
+.clock-card.favorited .clock-fav { color: var(--yellow); }
+
+/* Settings bar */
+.settings-bar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.settings-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
 /* --- Section title --- */
 .section-title {
   font-size: 1rem;
