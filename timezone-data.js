@@ -185,7 +185,8 @@
   }
 
   /**
-   * Search timezones by query (city name, timezone name, country).
+   * Search timezones by query with fuzzy matching.
+   * Scores results: exact city match > starts-with > contains > fuzzy.
    * @param {string} query
    * @param {number} [limit=10]
    * @returns {Array}
@@ -194,17 +195,60 @@
     limit = limit || 10;
     if (!query || query.trim().length < 1) return [];
     var q = query.toLowerCase().trim();
+    var words = q.split(/\s+/);
 
-    var results = [];
+    var scored = [];
     for (var i = 0; i < POPULAR_TIMEZONES.length; i++) {
       var tz = POPULAR_TIMEZONES[i];
-      var searchable = (tz.city + ' ' + tz.tz + ' ' + tz.country + ' ' + tz.region).toLowerCase();
-      if (searchable.indexOf(q) !== -1) {
-        results.push(tz);
-        if (results.length >= limit) break;
+      var city = tz.city.toLowerCase();
+      var searchable = (tz.city + ' ' + tz.tz.replace(/_/g, ' ') + ' ' + tz.country + ' ' + tz.region).toLowerCase();
+
+      var score = 0;
+      // Exact city match
+      if (city === q) score = 100;
+      // City starts with query
+      else if (city.indexOf(q) === 0) score = 80;
+      // Any field contains query
+      else if (searchable.indexOf(q) !== -1) score = 60;
+      // All words match somewhere (multi-word fuzzy)
+      else {
+        var allMatch = true;
+        for (var w = 0; w < words.length; w++) {
+          if (searchable.indexOf(words[w]) === -1) { allMatch = false; break; }
+        }
+        if (allMatch) score = 40;
+      }
+
+      if (score > 0) {
+        scored.push({ tz: tz, score: score });
       }
     }
+
+    // Sort by score descending, then by city name
+    scored.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.tz.city.localeCompare(b.tz.city);
+    });
+
+    var results = [];
+    for (var j = 0; j < Math.min(scored.length, limit); j++) {
+      results.push(scored[j].tz);
+    }
     return results;
+  }
+
+  /**
+   * Get all timezones grouped by region.
+   * @returns {Object} - { "Americas": [...], "Europe": [...], ... }
+   */
+  function getByRegion() {
+    var groups = {};
+    for (var i = 0; i < POPULAR_TIMEZONES.length; i++) {
+      var tz = POPULAR_TIMEZONES[i];
+      if (!groups[tz.region]) groups[tz.region] = [];
+      groups[tz.region].push(tz);
+    }
+    return groups;
   }
 
   /**
@@ -257,6 +301,7 @@
     getUTCOffset: getUTCOffset,
     search: search,
     getByTz: getByTz,
+    getByRegion: getByRegion,
     getRegions: getRegions,
     pad: pad,
   };

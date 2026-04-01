@@ -28,10 +28,13 @@
   var CLOCKS_KEY   = 'timezone-app-clocks';
   var THEME_KEY    = 'timezone-app-theme';
   var FORMAT_KEY   = 'timezone-app-format';
+  var MAX_CLOCKS   = 20;
   var tickInterval = null;
   var addedClocks  = [];
   var searchTimer  = null;
   var use24h       = true;
+  var browseOpen   = false;
+  var browseRegion = '';
 
   // =========================================================
   //  THEME
@@ -276,8 +279,15 @@
         var tz = btn.getAttribute('data-tz');
         removeClock(tz);
         renderClocks();
+        updateClockCount();
+        var meta = TZ.getByTz(tz);
+        showToast('Removed ' + (meta ? meta.city : tz));
       });
     });
+
+    // Enable drag reorder
+    enableDragReorder();
+    updateClockCount();
   }
 
   /**
@@ -320,10 +330,41 @@
   }
 
   // =========================================================
-  //  SEARCH
+  //  TOAST NOTIFICATIONS (SEN-371)
   // =========================================================
+  var toastTimeout;
+  function showToast(msg) {
+    var toast = $('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function () { toast.classList.remove('show'); }, 2500);
+  }
+
+  // =========================================================
+  //  CLOCK COUNT
+  // =========================================================
+  function updateClockCount() {
+    var el = $('clockCount');
+    if (!el) return;
+    if (addedClocks.length === 0) {
+      el.textContent = '';
+    } else {
+      el.textContent = addedClocks.length + ' / ' + MAX_CLOCKS + ' clocks';
+    }
+  }
+
+  // =========================================================
+  //  SEARCH (SEN-371 enhanced)
+  // =========================================================
+  var browsePanel = $('browsePanel');
+  var browseTabs  = $('browseTabs');
+  var browseList  = $('browseList');
+  var browseBtn   = $('browseBtn');
+
   searchInput.addEventListener('input', function () {
     clearTimeout(searchTimer);
+    closeBrowse();
     var q = searchInput.value.trim();
     if (q.length < 1) {
       hideSearchResults();
@@ -334,9 +375,16 @@
     }, 200);
   });
 
+  searchInput.addEventListener('focus', function () {
+    if (searchInput.value.trim().length >= 1) {
+      performSearch(searchInput.value.trim());
+    }
+  });
+
   searchInput.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       hideSearchResults();
+      closeBrowse();
       searchInput.blur();
     }
     if (e.key === 'Enter') {
@@ -354,7 +402,7 @@
   });
 
   function navigateResults(dir) {
-    var items = searchResults.querySelectorAll('li');
+    var items = searchResults.querySelectorAll('li:not(.no-results)');
     if (!items.length) return;
     var current = searchResults.querySelector('.active');
     var idx = -1;
@@ -372,9 +420,10 @@
   }
 
   function performSearch(query) {
-    var results = TZ.search(query, 8);
+    var results = TZ.search(query, 10);
+    closeBrowse();
     if (results.length === 0) {
-      searchResults.innerHTML = '<li>No timezones found</li>';
+      searchResults.innerHTML = '<li class="no-results">No timezones found for "' + escapeHtml(query) + '"</li>';
       searchResults.classList.remove('hidden');
       return;
     }
@@ -383,22 +432,27 @@
     results.forEach(function (tz) {
       var li = document.createElement('li');
       var utcOffset = TZ.getUTCOffset(tz.tz);
+      var timeInfo = TZ.getTimeInZone(tz.tz);
+      var timePreview = timeInfo ? formatTime(timeInfo) : '';
       var alreadyAdded = isClockAdded(tz.tz);
+
       li.innerHTML =
         '<span>' + escapeHtml(tz.city) +
         (tz.country ? ' <span class="sr-offset">' + escapeHtml(tz.country) + '</span>' : '') +
         '</span>' +
-        '<span class="sr-offset">' + escapeHtml(utcOffset) +
-        (alreadyAdded ? ' ✓' : '') + '</span>';
+        '<span>' +
+          '<span class="sr-time">' + escapeHtml(timePreview) + '</span> ' +
+          '<span class="sr-offset">' + escapeHtml(utcOffset) +
+          (alreadyAdded ? ' ✓' : '') + '</span>' +
+        '</span>';
 
       if (!alreadyAdded) {
         li.addEventListener('click', function () {
-          addClock(tz.tz);
-          renderClocks();
-          hideSearchResults();
-          searchInput.value = '';
+          tryAddClock(tz.tz, tz.city);
+          performSearch(query); // Refresh to show ✓
         });
       } else {
+        li.classList.add('added');
         li.style.opacity = '0.5';
         li.style.cursor = 'default';
       }
@@ -407,16 +461,162 @@
     searchResults.classList.remove('hidden');
   }
 
+  function tryAddClock(tz, cityName) {
+    if (addedClocks.length >= MAX_CLOCKS) {
+      showToast('Maximum ' + MAX_CLOCKS + ' clocks reached. Remove one first.');
+      return false;
+    }
+    if (addClock(tz)) {
+      renderClocks();
+      updateClockCount();
+      showToast('Added ' + (cityName || tz));
+      return true;
+    }
+    return false;
+  }
+
   function hideSearchResults() {
     searchResults.classList.add('hidden');
     searchResults.innerHTML = '';
   }
 
+  // =========================================================
+  //  BROWSE PANEL (SEN-371)
+  // =========================================================
+  browseBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (browseOpen) {
+      closeBrowse();
+    } else {
+      openBrowse();
+    }
+  });
+
+  function openBrowse() {
+    hideSearchResults();
+    browseOpen = true;
+    browsePanel.classList.remove('hidden');
+
+    // Build region tabs
+    var regions = TZ.getRegions();
+    browseTabs.innerHTML = '';
+    regions.forEach(function (r, idx) {
+      var btn = document.createElement('button');
+      btn.className = 'browse-tab' + (idx === 0 ? ' active' : '');
+      btn.textContent = r;
+      btn.addEventListener('click', function () {
+        browseTabs.querySelectorAll('.browse-tab').forEach(function (t) { t.classList.remove('active'); });
+        btn.classList.add('active');
+        browseRegion = r;
+        renderBrowseList(r);
+      });
+      browseTabs.appendChild(btn);
+    });
+
+    browseRegion = regions[0];
+    renderBrowseList(regions[0]);
+  }
+
+  function renderBrowseList(region) {
+    var grouped = TZ.getByRegion();
+    var tzList = grouped[region] || [];
+    browseList.innerHTML = '';
+
+    tzList.forEach(function (tz) {
+      var li = document.createElement('li');
+      var timeInfo = TZ.getTimeInZone(tz.tz);
+      var timePreview = timeInfo ? formatTime(timeInfo) : '';
+      var alreadyAdded = isClockAdded(tz.tz);
+
+      li.innerHTML =
+        '<span>' + escapeHtml(tz.city) +
+          (tz.country ? ' <span class="sr-offset">' + escapeHtml(tz.country) + '</span>' : '') +
+        '</span>' +
+        '<span class="browse-time">' + escapeHtml(timePreview) +
+          (alreadyAdded ? ' ✓' : '') + '</span>';
+
+      if (alreadyAdded) {
+        li.classList.add('added');
+      } else {
+        li.addEventListener('click', function () {
+          if (tryAddClock(tz.tz, tz.city)) {
+            renderBrowseList(region); // Refresh
+          }
+        });
+      }
+      browseList.appendChild(li);
+    });
+  }
+
+  function closeBrowse() {
+    browseOpen = false;
+    browsePanel.classList.add('hidden');
+  }
+
   document.addEventListener('click', function (e) {
     if (!e.target.closest('.search-container')) {
       hideSearchResults();
+      closeBrowse();
     }
   });
+
+  // =========================================================
+  //  DRAG-TO-REORDER (SEN-371)
+  // =========================================================
+  var dragSrcTz = null;
+
+  function enableDragReorder() {
+    var cards = clockGrid.querySelectorAll('.clock-card');
+    cards.forEach(function (card) {
+      card.setAttribute('draggable', 'true');
+
+      card.addEventListener('dragstart', function (e) {
+        dragSrcTz = card.getAttribute('data-tz');
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', dragSrcTz);
+      });
+
+      card.addEventListener('dragend', function () {
+        card.classList.remove('dragging');
+        clockGrid.querySelectorAll('.drag-over').forEach(function (c) { c.classList.remove('drag-over'); });
+        dragSrcTz = null;
+      });
+
+      card.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        var target = card.getAttribute('data-tz');
+        if (target !== dragSrcTz) {
+          card.classList.add('drag-over');
+        }
+      });
+
+      card.addEventListener('dragleave', function () {
+        card.classList.remove('drag-over');
+      });
+
+      card.addEventListener('drop', function (e) {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        var targetTz = card.getAttribute('data-tz');
+        if (dragSrcTz && targetTz && dragSrcTz !== targetTz) {
+          reorderClocks(dragSrcTz, targetTz);
+        }
+      });
+    });
+  }
+
+  function reorderClocks(fromTz, toTz) {
+    var fromIdx = addedClocks.indexOf(fromTz);
+    var toIdx = addedClocks.indexOf(toTz);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    addedClocks.splice(fromIdx, 1);
+    addedClocks.splice(toIdx, 0, fromTz);
+    saveClocks();
+    renderClocks();
+  }
 
   // =========================================================
   //  KEYBOARD SHORTCUTS
